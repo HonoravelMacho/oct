@@ -1,0 +1,40 @@
+*.gem
+*.log
+.DS_Store
+.emacs.desktop
+.idea/
+.vscode/
+
+# Flutter/Dart/Pub
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+pubspec.lock
+
+# Android
+android/.gradle/
+android/local.properties
+android/key.properties
+android/app/*.keystore
+android/app/*.jks
+**/android/**/gradle-wrapper.jar
+**/android/.cxx/
+
+# iOS (caso adicione depois)
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+
+# Dados brutos grandes - nao versionar fonte zst
+*.zst
+*.csv
+
+# Segredos
+.env
+*secret*
+token*.txt

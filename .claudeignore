@@ -1,0 +1,15 @@
+.git/
+.github/
+build/
+.dart_tool/
+.idea/
+.vscode/
+android/.gradle/
+android/app/.cxx/
+tool/output/
+*.zst
+*.csv
+*.apk
+*.jks
+*.keystore
+pubspec.lock
