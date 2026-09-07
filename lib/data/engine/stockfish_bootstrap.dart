@@ -1,4 +1,4 @@
-import 'package:stockfish/stockfish.dart';
+import 'package:stockfish_chess_engine/stockfish_chess_engine.dart';
 
 import 'chess_engine.dart';
 
