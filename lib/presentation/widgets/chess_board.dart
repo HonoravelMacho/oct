@@ -277,10 +277,15 @@ class _PieceGlyph extends StatelessWidget {
     final isWhite = charCode.toUpperCase() == charCode;
     final glyph =
         (isWhite ? _whiteGlyphs : _blackGlyphs)[charCode.toLowerCase()] ?? '?';
-    final fontSize = size * 0.74;
+    final fontSize = size * 0.78;
 
-    final strokeColor = isWhite ? Colors.black : NoirPalette.boardLight;
-    final fillColor = isWhite ? Colors.white : const Color(0xFF0B0B0B);
+    // Contraste máximo no tema Noir: brancas = preenchimento branco sólido
+    // com contorno preto grosso; pretas = preenchimento preto sólido com
+    // contorno branco grosso + halo para separar da casa escura.
+    final outlineColor = isWhite ? Colors.black : Colors.white;
+    final fillColor = isWhite ? Colors.white : Colors.black;
+    final haloColor =
+        isWhite ? Colors.black.withValues(alpha: 0.55) : Colors.white.withValues(alpha: 0.35);
 
     return SizedBox(
       width: size,
@@ -296,8 +301,9 @@ class _PieceGlyph extends StatelessWidget {
               height: 1,
               foreground: Paint()
                 ..style = PaintingStyle.stroke
-                ..strokeWidth = fontSize * 0.055
-                ..color = strokeColor,
+                ..strokeJoin = StrokeJoin.round
+                ..strokeWidth = fontSize * 0.10
+                ..color = outlineColor,
             ),
           ),
           Text(
@@ -307,6 +313,9 @@ class _PieceGlyph extends StatelessWidget {
               fontSize: fontSize,
               height: 1,
               color: fillColor,
+              shadows: [
+                Shadow(color: haloColor, blurRadius: fontSize * 0.10),
+              ],
             ),
           ),
         ],

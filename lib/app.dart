@@ -8,6 +8,7 @@ import 'presentation/providers/premium_provider.dart';
 import 'presentation/providers/session_provider.dart';
 import 'presentation/providers/tactics_controller.dart';
 import 'presentation/screens/home_screen.dart';
+import 'presentation/screens/analysis_screen.dart';
 import 'presentation/screens/play_screen.dart';
 import 'presentation/screens/premium_screen.dart';
 import 'presentation/screens/progress_screen.dart';
@@ -51,6 +52,7 @@ class _OctAppState extends State<OctApp> {
         routes: {
           '/': (_) => const HomeScreen(),
           '/play': (_) => const PlayScreen(),
+          '/analysis': (_) => const AnalysisScreen(),
           '/tactics': (_) => const TacticsScreen(),
           '/progress': (_) => const ProgressScreen(),
           '/premium': (_) => const PremiumScreen(),

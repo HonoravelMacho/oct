@@ -12,6 +12,21 @@ class BotProfile {
   final int uciElo;
   final int skillLevel;
   final int moveTimeMs;
+
+  /// Perfil ajustado pela barrinha de força (250 → 2500, passo 50).
+  /// [name] é só a identidade visual; a força real vem de [elo].
+  factory BotProfile.tuned({required String name, required int elo}) {
+    final e = elo.clamp(250, 2500);
+    final t = (e - 250) / 2250; // 0.0 → 1.0
+    return BotProfile(
+      name: name,
+      elo: e,
+      // UCI_Elo do Stockfish opera entre 1320 e 3190.
+      uciElo: (e + 200).clamp(1320, 3190),
+      skillLevel: (t * 20).round().clamp(0, 20),
+      moveTimeMs: (150 + t * 850).round(),
+    );
+  }
 }
 
 class BotRoster {

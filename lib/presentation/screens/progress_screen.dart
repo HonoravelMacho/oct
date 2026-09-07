@@ -52,8 +52,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       children: [
                         Text(
                           overall.total == 0
-                              ? '0.00%'
-                              : '${overall.percent.toStringAsFixed(2)}%',
+                              ? '0.00000%'
+                              : '${overall.percent.toStringAsFixed(5)}%',
                           style: const TextStyle(
                               fontSize: 34, fontWeight: FontWeight.w800),
                         ),
@@ -131,8 +131,8 @@ class _ThemeProgressTile extends StatelessWidget {
                       letterSpacing: 1.5),
                 ),
               ),
-              Text('${tp.percent.toStringAsFixed(1)}%',
-                  style: const TextStyle(fontSize: 12)),
+              Text('${tp.percent.toStringAsFixed(5)}%',
+                  style: const TextStyle(fontSize: 11)),
             ],
           ),
           const SizedBox(height: 7),

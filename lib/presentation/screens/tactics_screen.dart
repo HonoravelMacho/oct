@@ -91,8 +91,8 @@ class _ThemeListView extends StatelessWidget {
                       ),
                       Text(
                         tp.total == 0
-                            ? '0%'
-                            : '${tp.percent.toStringAsFixed(1)}%',
+                            ? '0.00000%'
+                            : '${tp.percent.toStringAsFixed(5)}%',
                         style: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w700),
                       ),
@@ -142,12 +142,20 @@ class _SolverView extends StatelessWidget {
       case TacticFeedback.solved:
         feedbackText = 'RESOLVIDA! +ELO';
         break;
+      case TacticFeedback.revealed:
+        feedbackText = 'SOLUCAO EXIBIDA - VALENDO ESTUDO';
+        break;
       case TacticFeedback.exhausted:
         feedbackText = 'SEM MAIS PUZZLES DESTE TEMA';
         break;
       default:
         feedbackText =
             'LANCE DAS ${_sideLabel(puzzle?.fen ?? '')}';
+    }
+    if (controller.hintFrom != null &&
+        controller.feedback != TacticFeedback.solved &&
+        controller.feedback != TacticFeedback.revealed) {
+      feedbackText = 'DICA: A PECA DE ${controller.hintFrom} SE MOVE';
     }
 
     return Padding(
@@ -186,14 +194,46 @@ class _SolverView extends StatelessWidget {
                   orientation: _solverOrientation(puzzle?.fen),
                   interactiveColor: _solverSide(puzzle?.fen),
                   enabled: puzzle != null &&
+                      !controller.autoSolving &&
                       controller.feedback != TacticFeedback.solved &&
+                      controller.feedback != TacticFeedback.revealed &&
                       controller.feedback != TacticFeedback.exhausted,
-                  lastMoveSquares: controller.lastMoveSquaresForBoard(),
+                  lastMoveSquares: [
+                    if (controller.hintFrom != null) controller.hintFrom!,
+                    ...controller.lastMoveSquaresForBoard(),
+                  ],
                   onMove: (from, to, promo) =>
                       controller.tryHumanMove(from, to, promo),
                 ),
               ),
             ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: controller.autoSolving
+                      ? null
+                      : () => controller.showHint(),
+                  child: Text(controller.hintsUsed > 0
+                      ? 'DICA (${controller.hintsUsed})'
+                      : 'DICA'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: OutlinedButton(
+                  onPressed: controller.autoSolving
+                      ? null
+                      : () => controller.autoSolve(),
+                  child: Text(controller.autoSolving
+                      ? 'MOSTRANDO...'
+                      : 'VER SOLUCAO'),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           Row(

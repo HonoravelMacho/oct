@@ -8,7 +8,7 @@ import 'session_provider.dart';
 
 enum TacticMode { themes, solving }
 
-enum TacticFeedback { none, correct, correctContinue, wrong, solved, exhausted }
+enum TacticFeedback { none, correct, correctContinue, wrong, solved, revealed, exhausted }
 
 class TacticsController extends ChangeNotifier {
   TacticsController(this._session);
@@ -29,6 +29,11 @@ class TacticsController extends ChangeNotifier {
   int sessionSolved = 0;
   bool loadingNext = false;
   List<String> lastMoveSquares = <String>[];
+
+  String? hintFrom;
+  int hintsUsed = 0;
+  bool autoSolving = false;
+  int _solveGen = 0;
 
   List<String> lastMoveSquaresForBoard() => lastMoveSquares;
 
@@ -54,6 +59,9 @@ class TacticsController extends ChangeNotifier {
     if (db == null) return false;
     loadingNext = true;
     feedback = TacticFeedback.none;
+    hintFrom = null;
+    autoSolving = false;
+    _solveGen++;
     notifyListeners();
 
     final puzzle = await db.pickPuzzle(theme: selectedTheme);
@@ -80,6 +88,7 @@ class TacticsController extends ChangeNotifier {
     if (puzzle == null || solutionIndex >= puzzle.movesUci.length) {
       return false;
     }
+    if (autoSolving) return false;
 
     final expected = puzzle.movesUci[solutionIndex];
     final attemptUci = '$from$to${promotion ?? ''}'.toLowerCase();
@@ -157,6 +166,7 @@ class TacticsController extends ChangeNotifier {
 
   void _onPuzzleCompleted(Puzzle puzzle) {
     feedback = TacticFeedback.solved;
+    hintFrom = null;
     sessionSolved++;
     _session.db?.recordAttempt(puzzle.id, true);
     _session.applyTacticResult(puzzleRating: puzzle.rating, solved: true);
@@ -169,6 +179,69 @@ class TacticsController extends ChangeNotifier {
     if (puzzle != null && feedback != TacticFeedback.solved) {
       await _session.db?.recordAttempt(puzzle.id, false);
     }
+    await loadNextPuzzle();
+  }
+
+  /// Dica: destaca a casa de origem do próximo lance da solução.
+  void showHint() {
+    final puzzle = currentPuzzle;
+    if (puzzle == null || autoSolving) return;
+    if (solutionIndex >= puzzle.movesUci.length) return;
+    if (feedback == TacticFeedback.solved ||
+        feedback == TacticFeedback.revealed) {
+      return;
+    }
+    hintFrom = puzzle.movesUci[solutionIndex].substring(0, 2);
+    hintsUsed++;
+    notifyListeners();
+  }
+
+  /// Avança automaticamente até a resolução, mostrando a sequência.
+  /// Não conta como resolvida: não dá ELO nem consome/gasta crédito.
+  Future<void> autoSolve() async {
+    final puzzle = currentPuzzle;
+    if (puzzle == null || autoSolving || mode != TacticMode.solving) return;
+    if (solutionIndex >= puzzle.movesUci.length) return;
+    autoSolving = true;
+    hintFrom = null;
+    final myGen = _solveGen;
+    notifyListeners();
+
+    bool alive() => myGen == _solveGen && identical(currentPuzzle, puzzle);
+
+    while (solutionIndex < puzzle.movesUci.length) {
+      final mv = puzzle.movesUci[solutionIndex];
+      final ok = applySolutionMove(
+        mv.substring(0, 2),
+        mv.substring(2, 4),
+        mv.length > 4 ? mv[4] : null,
+      );
+      if (!ok || !alive()) {
+        autoSolving = false;
+        notifyListeners();
+        return;
+      }
+      lastMoveSquares = [mv.substring(0, 2), mv.substring(2, 4)];
+      solutionIndex++;
+      lastExpectedUci = solutionIndex < puzzle.movesUci.length
+          ? puzzle.movesUci[solutionIndex]
+          : '';
+      feedback = TacticFeedback.correctContinue;
+      notifyListeners();
+      if (solutionIndex >= puzzle.movesUci.length) break;
+      await Future.delayed(const Duration(milliseconds: 550));
+      if (!alive()) {
+        autoSolving = false;
+        return;
+      }
+    }
+
+    await _session.db?.recordAttempt(puzzle.id, false);
+    feedback = TacticFeedback.revealed;
+    autoSolving = false;
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 1600));
+    if (!alive()) return;
     await loadNextPuzzle();
   }
 
