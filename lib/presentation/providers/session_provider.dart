@@ -87,6 +87,13 @@ class SessionProvider extends ChangeNotifier {
 
   OctDatabase? get db => _db;
 
+  /// Injeção apenas para testes de fluxo (evita o caminho do singleton).
+  @visibleForTesting
+  void setDbForTesting(OctDatabase db) {
+    _db = db;
+    dbReady = true;
+  }
+
   bool consumeGameCredit() {
     if (premiumUnlocked) return true;
     return _stats.usage.consumeForGame();

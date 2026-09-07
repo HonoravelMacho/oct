@@ -35,6 +35,10 @@ class TacticsController extends ChangeNotifier {
   bool autoSolving = false;
   int _solveGen = 0;
 
+  /// Últimos exercícios exibidos: o PRÓXIMA nunca os repete em seguida.
+  final List<String> _recentIds = [];
+  static const int _recentCap = 50;
+
   List<String> lastMoveSquaresForBoard() => lastMoveSquares;
 
   bool get premiumUnlocked => _session.premiumUnlocked;
@@ -50,6 +54,7 @@ class TacticsController extends ChangeNotifier {
   Future<bool> openTheme(String theme) async {
     selectedTheme = theme;
     mode = TacticMode.solving;
+    _recentIds.clear();
     notifyListeners();
     return loadNextPuzzle();
   }
@@ -64,7 +69,7 @@ class TacticsController extends ChangeNotifier {
     _solveGen++;
     notifyListeners();
 
-    final puzzle = await db.pickPuzzle(theme: selectedTheme);
+    final puzzle = await _pickFresh();
     loadingNext = false;
     if (puzzle == null) {
       currentPuzzle = null;
@@ -73,6 +78,10 @@ class TacticsController extends ChangeNotifier {
       return false;
     }
 
+    _recentIds.add(puzzle.id);
+    if (_recentIds.length > _recentCap) {
+      _recentIds.removeRange(0, _recentIds.length - _recentCap);
+    }
     currentPuzzle = puzzle;
     board = ch.Chess.fromFEN(puzzle.fen);
     solutionIndex = 0;
@@ -81,6 +90,22 @@ class TacticsController extends ChangeNotifier {
     feedback = TacticFeedback.none;
     notifyListeners();
     return true;
+  }
+
+  /// Sorteia evitando os recentes; em tema pequeno, evita ao menos o atual.
+  Future<Puzzle?> _pickFresh() async {
+    final db = _session.db;
+    if (db == null) return null;
+    final fresh = await db.pickPuzzle(
+      theme: selectedTheme,
+      excludeIds: _recentIds,
+    );
+    if (fresh != null) return fresh;
+    final currentId = currentPuzzle?.id;
+    return db.pickPuzzle(
+      theme: selectedTheme,
+      excludeIds: currentId == null ? const [] : [currentId],
+    );
   }
 
   bool tryHumanMove(String from, String to, String? promotion) {

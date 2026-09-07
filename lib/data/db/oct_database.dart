@@ -99,6 +99,7 @@ class OctDatabase {
     required String theme,
     int? minRating,
     int? maxRating,
+    List<String> excludeIds = const [],
   }) async {
     String where = 'primary_theme = ?';
     final args = <Object>[theme];
@@ -109,6 +110,11 @@ class OctDatabase {
     if (maxRating != null) {
       where += ' AND rating <= ?';
       args.add(maxRating);
+    }
+    if (excludeIds.isNotEmpty) {
+      where +=
+          ' AND p.id NOT IN (${List.filled(excludeIds.length, '?').join(',')})';
+      args.addAll(excludeIds);
     }
     final rows = await _db.rawQuery('''
       SELECT p.* FROM puzzles p
