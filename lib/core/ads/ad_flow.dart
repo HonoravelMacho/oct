@@ -1,57 +1,32 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../app_constants.dart';
 
+/// Fluxo de rewarded da Fase 1: 100% mock (tela `/reward_sim`).
+///
+/// O plugin nativo `google_mobile_ads` foi removido de propósito nesta fase:
+/// além de não ser usado (`useRealAds == false`), ele puxa
+/// `androidx.work:work-runtime`, que quebrava o app na abertura em release
+/// (crash no `InitializationProvider` → `WorkDatabase` sob R8).
+///
+/// Fase 2 (Play Store): re-adicionar `google_mobile_ads` ao pubspec,
+/// o meta-data `APPLICATION_ID` ao AndroidManifest e implementar
+/// [_showRealRewarded] com `RewardedAd` real.
 class AdFlow {
   AdFlow._();
-
-  static bool _mobileAdsInitialized = false;
 
   static Future<bool> showRewardedForCredits(BuildContext context) async {
     if (!AppConstants.useRealAds) {
       final result = await Navigator.of(context).pushNamed('/reward_sim');
       return result == true;
     }
-    return _showRealRewarded();
+    return _showRealRewarded(context);
   }
 
-  static Future<bool> _showRealRewarded() async {
-    if (!_mobileAdsInitialized) {
-      await MobileAds.instance.initialize();
-      _mobileAdsInitialized = true;
-    }
-    final completer = CompleterAdGate();
-    RewardedAd.load(
-      adUnitId: AppConstants.admobTestRewardedId,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          ad.fullScreenContentCallback = FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              completer.complete(false);
-            },
-          );
-          ad.show(
-            onUserEarnedReward: (_, _) => completer.complete(true),
-          );
-        },
-        onAdFailedToLoad: (error) {
-          completer.complete(false);
-        },
-      ),
-    );
-    return completer.future;
-  }
-}
-
-class CompleterAdGate {
-  final completer = Completer<bool>();
-  Future<bool> get future => completer.future;
-  void complete(bool v) {
-    if (!completer.isCompleted) completer.complete(v);
+  static Future<bool> _showRealRewarded(BuildContext context) async {
+    // Plugin nativo ausente na Fase 1: cai no simulado para nunca travar.
+    if (!context.mounted) return false;
+    final result = await Navigator.of(context).pushNamed('/reward_sim');
+    return result == true;
   }
 }

@@ -28,7 +28,8 @@ Fluxos para testar no APK:
 
 ## Fase 2 — Publicação na Play Store (próximo passo)
 
-- [ ] Trocar `useRealAds=false` por AdMob real + IDs de produção.
+- [ ] Anúncios reais: re-adicionar `google_mobile_ads` (removido na Fase 1
+  pois puxava `androidx.work` e crashava o release) + IDs de produção.
 - [ ] Trocar download demo pelo download real (WorkManager + resumable,
       checagem de espaço, licença Google Play).
 - [ ] Assinatura release (`key.properties` + `app bundle` via

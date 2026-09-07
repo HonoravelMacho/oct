@@ -19,7 +19,6 @@ dependencies:
   archive: ^3.6.1
   chess: ^0.8.1
   stockfish_chess_engine: ^0.8.2
-  google_mobile_ads: ^9.1.0
 
 dev_dependencies:
   flutter_test:
