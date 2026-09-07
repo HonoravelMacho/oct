@@ -95,7 +95,9 @@ class TacticsController extends ChangeNotifier {
     final expectedNorm = expected.toLowerCase();
 
     final legalTargets = <String>{};
-    for (final mv in board.moves({'verbose': true})) {
+    for (final mv in board
+        .moves({'asObjects': true})
+        .cast<ch.Move>()) {
       legalTargets.add('${mv.fromAlgebraic}${mv.toAlgebraic}');
     }
     if (!legalTargets.contains('$from$to')) return false;

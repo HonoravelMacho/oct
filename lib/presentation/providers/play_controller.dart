@@ -36,6 +36,7 @@ class PlayController extends ChangeNotifier {
   bool reviewing = false;
   int reviewDone = 0;
   int reviewTotal = 0;
+  int reviewDepthUsed = GameReviewService.reviewDepth;
   GameReview? gameReview;
 
   /// Chance de lance puramente casual (nível iniciante de verdade).
@@ -327,8 +328,10 @@ class PlayController extends ChangeNotifier {
 
   // ---------- Revisão com o motor ----------
 
-  Future<void> reviewGame() async {
-    if (gameReview != null || reviewing || historySan.isEmpty) return;
+  Future<void> reviewGame({int? depth}) async {
+    final d = depth ?? GameReviewService.reviewDepth;
+    if (reviewing || historySan.isEmpty) return;
+    if (gameReview != null && reviewDepthUsed == d) return;
     reviewing = true;
     reviewDone = 0;
     reviewTotal = historySan.length + 1;
@@ -337,8 +340,7 @@ class PlayController extends ChangeNotifier {
     Future<EngineEval?> evalFn(String fen) async {
       EngineEval? e;
       try {
-        e = await _session.evaluatePosition(
-            fen, GameReviewService.reviewDepth);
+        e = await _session.evaluatePosition(fen, d);
       } catch (_) {
         e = null;
       }
@@ -352,7 +354,9 @@ class PlayController extends ChangeNotifier {
         historySan: historySan,
         historyFen: historyFen,
         evalFn: evalFn,
+        depth: d,
       );
+      reviewDepthUsed = d;
     } catch (_) {
       gameReview = null;
     }

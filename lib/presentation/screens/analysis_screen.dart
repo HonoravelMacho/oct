@@ -102,6 +102,55 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          Row(
+            children: [
+              for (final d in GameReviewService.depthOptions)
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                        right: d == GameReviewService.depthOptions.last
+                            ? 0
+                            : 8),
+                    child: GestureDetector(
+                      onTap: c.reviewing
+                          ? null
+                          : () => c.reviewGame(depth: d),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: c.reviewDepthUsed == d && review != null
+                              ? Colors.white
+                              : NoirPalette.surface,
+                          border:
+                              Border.all(color: NoirPalette.border),
+                        ),
+                        child: Text(
+                          '${_depthLabel(d)} $d',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            color: c.reviewDepthUsed == d &&
+                                    review != null
+                                ? Colors.black
+                                : NoirPalette.textDim,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'PROFUNDA PENSA MAIS (PODE LEVAR MINUTOS)',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 8, letterSpacing: 1.5, color: NoirPalette.textDim),
+          ),
+          const SizedBox(height: 8),
           _ReviewSection(
             controller: c,
             session: session,
@@ -484,6 +533,12 @@ class _SectionTitle extends StatelessWidget {
         style: const TextStyle(
             fontSize: 10, letterSpacing: 2.5, color: NoirPalette.textDim));
   }
+}
+
+String _depthLabel(int depth) {
+  if (depth <= 8) return 'RAPIDA';
+  if (depth >= 15) return 'PROFUNDA';
+  return 'PADRAO';
 }
 
 class _StatTile extends StatelessWidget {

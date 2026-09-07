@@ -275,8 +275,12 @@ class _PieceGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isWhite = charCode.toUpperCase() == charCode;
-    final glyph =
+    // \uFE0E força apresentação em TEXTO: sem ele, alguns glifos
+    // (ex: o peão preto ♟) caem no font de emoji do aparelho e ignoram
+    // as cores ouro/madeira do tema.
+    final base =
         (isWhite ? _whiteGlyphs : _blackGlyphs)[charCode.toLowerCase()] ?? '?';
+    final glyph = '$base\uFE0E';
     final fontSize = size * 0.78;
 
     // Ouro (brancas) × madeira (pretas): contorno grosso + halo para

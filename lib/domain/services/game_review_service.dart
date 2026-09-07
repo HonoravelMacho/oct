@@ -27,6 +27,9 @@ class GameReviewService {
   /// Profundidade fixa exibida na revisão ("PROFUNDIDADE 11").
   static const int reviewDepth = 11;
 
+  /// Opções de análise: rápida (segundos) → profunda (minutos, mais precisa).
+  static const List<int> depthOptions = [8, 11, 15];
+
   static const Map<MoveLabel, String> labelNames = {
     MoveLabel.brilliant: 'BRILHANTE',
     MoveLabel.great: 'GRANDE LANCE',
@@ -105,6 +108,7 @@ class GameReviewService {
     required List<String> historySan,
     required List<String> historyFen,
     required Future<EngineEval?> Function(String fen) evalFn,
+    int depth = reviewDepth,
   }) async {
     final n = historySan.length;
     final raw = <EngineEval?>[];
@@ -200,37 +204,56 @@ class GameReviewService {
           ? cpToWinPct(_whiteOfSide(bestSide, mover))
           : 100 - cpToWinPct(_whiteOfSide(bestSide, mover));
 
-      final loss = (wpBestMover - wpAfterMover).clamp(0, 100).toDouble();
       final gain = wpAfterMover - wpBeforeMover;
       final bestGain = wpBestMover - wpBeforeMover;
 
       final isBook = _isBookMove(sans, i);
       final sacrificed = _isSacrifice(fenBefore, fenAfter, mover);
 
+      // Quem já dá mate: mede a distância (mate em 5 após mate em 2 = lento).
+      final kb = e?.mate;
+      int? ka;
+      final eAfter = raw[i + 1];
+      if (eAfter?.mate != null) {
+        final afterSide = sideToMove(fenAfter);
+        ka = afterSide == mover ? eAfter!.mate! : -eAfter!.mate!;
+      }
+
       MoveLabel label;
-      if (isBook) {
+      double loss;
+      if (kb != null && kb > 0 && ka != null && ka > 0) {
+        loss = ((ka - kb).abs() * 2).clamp(0, 25).toDouble();
+        label = loss <= 0.5
+            ? (sacrificed ? MoveLabel.brilliant : MoveLabel.best)
+            : (loss <= 7 ? MoveLabel.excellent : MoveLabel.good);
+      } else if (isBook) {
+        loss = (wpBestMover - wpAfterMover).clamp(0, 100).toDouble();
         label = MoveLabel.book;
       } else if (wpBeforeMover < 80 &&
           bestGain >= 18 &&
           gain >= -3 &&
           gain < 6) {
+        loss = (wpBestMover - wpAfterMover).clamp(0, 100).toDouble();
         label = MoveLabel.miss;
-      } else if (loss <= 0.5 && sacrificed) {
-        label = MoveLabel.brilliant;
-      } else if (loss <= 0.5 && gain >= 12) {
-        label = MoveLabel.great;
-      } else if (loss <= 0.5) {
-        label = MoveLabel.best;
-      } else if (loss <= 3) {
-        label = MoveLabel.excellent;
-      } else if (loss <= 7) {
-        label = MoveLabel.good;
-      } else if (loss <= 13) {
-        label = MoveLabel.inaccuracy;
-      } else if (loss <= 22) {
-        label = MoveLabel.mistake;
       } else {
-        label = MoveLabel.blunder;
+        loss = (wpBestMover - wpAfterMover).clamp(0, 100).toDouble();
+        if (loss <= 0.5 && sacrificed) {
+          label = MoveLabel.brilliant;
+        } else if (loss <= 0.5 && gain >= 12) {
+          label = MoveLabel.great;
+        } else if (loss <= 0.5) {
+          label = MoveLabel.best;
+        } else if (loss <= 3) {
+          label = MoveLabel.excellent;
+        } else if (loss <= 7) {
+          label = MoveLabel.good;
+        } else if (loss <= 13) {
+          label = MoveLabel.inaccuracy;
+        } else if (loss <= 22) {
+          label = MoveLabel.mistake;
+        } else {
+          label = MoveLabel.blunder;
+        }
       }
       labels.add(label);
 
@@ -249,7 +272,7 @@ class GameReviewService {
     double avg(List<double> xs) =>
         xs.isEmpty ? 0 : xs.reduce((a, b) => a + b) / xs.length;
     double? phaseAcc(Map<String, List<double>> m, String k) =>
-        m[k]!.length >= 2 ? accuracyFromAvgLoss(avg(m[k]!)) : null;
+        m[k]!.isNotEmpty ? accuracyFromAvgLoss(avg(m[k]!)) : null;
 
     final avgWhite = avg(lossesWhite);
     final avgBlack = avg(lossesBlack);
@@ -277,7 +300,7 @@ class GameReviewService {
       labels: labels,
       timeline: timeline,
       evalTexts: evalTexts,
-      depth: reviewDepth,
+      depth: depth,
       engineUsed: engineUsed,
       openingName: opening.name,
       openingKey: opening.key,
@@ -285,7 +308,7 @@ class GameReviewService {
         abertura: phaseAcc(phaseLossWhite, 'abertura'),
         meioJogo: phaseAcc(phaseLossWhite, 'meio'),
         finalJogo: phaseAcc(phaseLossWhite, 'final'),
-        tatica: tacticLossWhite.length >= 2
+        tatica: tacticLossWhite.isNotEmpty
             ? accuracyFromAvgLoss(avg(tacticLossWhite))
             : null,
       ),
@@ -293,7 +316,7 @@ class GameReviewService {
         abertura: phaseAcc(phaseLossBlack, 'abertura'),
         meioJogo: phaseAcc(phaseLossBlack, 'meio'),
         finalJogo: phaseAcc(phaseLossBlack, 'final'),
-        tatica: tacticLossBlack.length >= 2
+        tatica: tacticLossBlack.isNotEmpty
             ? accuracyFromAvgLoss(avg(tacticLossBlack))
             : null,
       ),

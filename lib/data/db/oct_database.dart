@@ -9,7 +9,7 @@ class OctDatabase {
   final sqflite.Database _db;
 
   static const String dbName = 'oct_puzzles.db';
-  static const int dbVersion = 1;
+  static const int dbVersion = 2;
 
   static OctDatabase? _instance;
 
@@ -26,6 +26,13 @@ class OctDatabase {
       options: sqflite.OpenDatabaseOptions(
         version: dbVersion,
         onConfigure: (d) => d.execute('PRAGMA foreign_keys = ON'),
+        onUpgrade: (d, oldVersion, newVersion) async {
+          // Base gratuita refeita (posições por tema + lances válidos):
+          // limpa tudo para ressemear na próxima abertura.
+          await d.execute('DELETE FROM puzzles');
+          await d.execute('DELETE FROM puzzle_progress');
+          await d.execute("DELETE FROM meta WHERE key = 'free_seeded'");
+        },
         onCreate: (d, version) async {
         await d.execute('''
           CREATE TABLE puzzles (
