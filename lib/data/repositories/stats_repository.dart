@@ -53,6 +53,19 @@ class StatsRepository {
   void setPremiumUnlocked(bool value) =>
       _prefs.setBool(AppConstants.prefPremiumUnlocked, value);
 
+  /// Histórico pessoal por abertura (chave slug): vitórias/empates/derrotas.
+  void recordOpening(String key, String result) {
+    final suffix = result == 'w' ? 'w' : (result == 'l' ? 'l' : 'd');
+    final pref = 'opening_${key}_$suffix';
+    _prefs.setInt(pref, (_prefs.getInt(pref) ?? 0) + 1);
+  }
+
+  ({int w, int d, int l}) openingStats(String key) => (
+        w: _prefs.getInt('opening_${key}_w') ?? 0,
+        d: _prefs.getInt('opening_${key}_d') ?? 0,
+        l: _prefs.getInt('opening_${key}_l') ?? 0,
+      );
+
   ({int oldRating, int newRating}) applyGameResult({
     required int opponentRating,
     required bool userWon,

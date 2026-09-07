@@ -9,6 +9,7 @@ import '../../data/datasources/puzzle_asset_source.dart';
 import '../../data/engine/chess_engine.dart';
 import '../../data/engine/stockfish_bootstrap.dart';
 import '../../data/repositories/stats_repository.dart';
+import '../../domain/entities/bot_profile.dart';
 
 class SessionProvider extends ChangeNotifier {
   SessionProvider(this._prefs) {
@@ -62,6 +63,26 @@ class SessionProvider extends ChangeNotifier {
     final ok = await sf.start();
     _engine = ok ? sf : createFallbackEngine();
     notifyListeners();
+  }
+
+  bool get usingStockfish => _engine is StockfishUciEngine;
+
+  /// Garante a força do bot no motor antes da busca (ordem preservada no UCI).
+  Future<void> configureEngine(BotProfile profile) async {
+    final engine = _engine;
+    if (engine is StockfishUciEngine) {
+      engine.setStrength(profile);
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  /// Avaliação pontual para a revisão da partida. Null sem Stockfish.
+  Future<EngineEval?> evaluatePosition(String fen, int depth) {
+    final engine = _engine;
+    if (engine is StockfishUciEngine) {
+      return engine.evaluate(fen: fen, depth: depth);
+    }
+    return Future.value(null);
   }
 
   OctDatabase? get db => _db;

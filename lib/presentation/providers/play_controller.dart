@@ -1,10 +1,12 @@
 import 'package:chess/chess.dart' as ch;
 import 'package:flutter/foundation.dart';
+import 'dart:math' as math;
 
 import '../../core/app_constants.dart';
 import '../../data/engine/chess_engine.dart';
 import '../../domain/entities/bot_profile.dart';
 import '../../domain/services/elo_service.dart';
+import '../../domain/services/game_review_service.dart';
 import '../../domain/services/win_chance_service.dart';
 import 'session_provider.dart';
 
@@ -28,6 +30,18 @@ class PlayController extends ChangeNotifier {
   List<String> historySan = <String>[];
   List<String> historyFen = <String>[];
   List<String> lastMoveSquares = <String>[];
+  List<int> plyDurationsMs = <int>[];
+  DateTime? _turnStart;
+
+  bool reviewing = false;
+  int reviewDone = 0;
+  int reviewTotal = 0;
+  GameReview? gameReview;
+
+  /// Chance de lance puramente casual (nível iniciante de verdade).
+  /// 250 → 65% aleatório; 800 → ~27%; 1100+ → 0% (só motor limitado).
+  static double casualChance(int elo) =>
+      ((1100 - elo) / 1100).clamp(0, 0.65).toDouble();
 
   BotProfile get selectedBot =>
       BotProfile.tuned(name: botBaseName, elo: botRating);
@@ -78,6 +92,12 @@ class PlayController extends ChangeNotifier {
     historySan.clear();
     historyFen = [game.fen];
     lastMoveSquares.clear();
+    plyDurationsMs.clear();
+    gameReview = null;
+    reviewing = false;
+    reviewDone = 0;
+    reviewTotal = 0;
+    _turnStart = DateTime.now();
     _session.consumeGameCredit();
     notifyListeners();
 
@@ -115,6 +135,13 @@ class PlayController extends ChangeNotifier {
     final h = game.getHistory();
     historySan.add(h.isNotEmpty ? '${h.last}' : '?');
     historyFen.add(game.fen);
+    final now = DateTime.now();
+    if (_turnStart != null) {
+      plyDurationsMs.add(now.difference(_turnStart!).inMilliseconds);
+    } else {
+      plyDurationsMs.add(0);
+    }
+    _turnStart = now;
   }
 
   void _runBotTurn() {
@@ -126,11 +153,17 @@ class PlayController extends ChangeNotifier {
   }
 
   Future<void> _botTurnAsync(String fen, BotProfile bot) async {
-    var uci =
-          await _session.activeEngine?.bestMove(fen: fen, profile: bot);
+    await _session.configureEngine(bot);
+
+    String? uci;
+    if (math.Random().nextDouble() < casualChance(bot.elo)) {
+      uci = await _rescueBot.randomMove(fen);
+    } else {
+      uci = await _session.activeEngine?.bestMove(fen: fen, profile: bot);
       if (uci == null || uci.isEmpty) {
         uci = await _rescueBot.bestMove(fen: fen, profile: bot);
       }
+    }
 
       if (phase != GamePhase.botThinking) return;
 
@@ -176,6 +209,12 @@ class PlayController extends ChangeNotifier {
     eloBefore = delta.oldRating;
     eloAfter = delta.newRating;
     eloDelta = delta.newRating - delta.oldRating;
+
+    final opening = OpeningBook.identify(historySan);
+    _session.stats.recordOpening(
+      opening.key,
+      result == 'win' ? 'w' : (result == 'loss' ? 'l' : 'd'),
+    );
     notifyListeners();
   }
 
@@ -249,6 +288,76 @@ class PlayController extends ChangeNotifier {
       }
     }
     return out;
+  }
+
+  // ---------- Ritmo de jogo ----------
+
+  List<int> _pliesOf(bool human) {
+    final out = <int>[];
+    for (var i = 0; i < plyDurationsMs.length; i++) {
+      final isWhiteMove = i % 2 == 0;
+      final isHumanMove = (userColor == 'w') == isWhiteMove;
+      if (isHumanMove == human) out.add(plyDurationsMs[i]);
+    }
+    return out;
+  }
+
+  double get humanAvgSeconds {
+    final xs = _pliesOf(true);
+    if (xs.isEmpty) return 0;
+    return xs.reduce((a, b) => a + b) / xs.length / 1000;
+  }
+
+  ({int moveNumber, double seconds}) get humanSlowest {
+    var best = 0;
+    var bestIdx = -1;
+    for (var i = 0; i < plyDurationsMs.length; i++) {
+      final isWhiteMove = i % 2 == 0;
+      if ((userColor == 'w') != isWhiteMove) continue;
+      if (plyDurationsMs[i] > best) {
+        best = plyDurationsMs[i];
+        bestIdx = i;
+      }
+    }
+    return (
+      moveNumber: bestIdx >= 0 ? bestIdx ~/ 2 + 1 : 0,
+      seconds: best / 1000
+    );
+  }
+
+  // ---------- Revisão com o motor ----------
+
+  Future<void> reviewGame() async {
+    if (gameReview != null || reviewing || historySan.isEmpty) return;
+    reviewing = true;
+    reviewDone = 0;
+    reviewTotal = historySan.length + 1;
+    notifyListeners();
+
+    Future<EngineEval?> evalFn(String fen) async {
+      EngineEval? e;
+      try {
+        e = await _session.evaluatePosition(
+            fen, GameReviewService.reviewDepth);
+      } catch (_) {
+        e = null;
+      }
+      reviewDone++;
+      notifyListeners();
+      return e;
+    }
+
+    try {
+      gameReview = await GameReviewService.analyze(
+        historySan: historySan,
+        historyFen: historyFen,
+        evalFn: evalFn,
+      );
+    } catch (_) {
+      gameReview = null;
+    }
+    reviewing = false;
+    notifyListeners();
   }
 
   String _turnColor() => game.turn == ch.Color.WHITE ? 'w' : 'b';

@@ -279,13 +279,15 @@ class _PieceGlyph extends StatelessWidget {
         (isWhite ? _whiteGlyphs : _blackGlyphs)[charCode.toLowerCase()] ?? '?';
     final fontSize = size * 0.78;
 
-    // Contraste máximo no tema Noir: brancas = preenchimento branco sólido
-    // com contorno preto grosso; pretas = preenchimento preto sólido com
-    // contorno branco grosso + halo para separar da casa escura.
-    final outlineColor = isWhite ? Colors.black : Colors.white;
-    final fillColor = isWhite ? Colors.white : Colors.black;
-    final haloColor =
-        isWhite ? Colors.black.withValues(alpha: 0.55) : Colors.white.withValues(alpha: 0.35);
+    // Ouro (brancas) × madeira (pretas): contorno grosso + halo para
+    // leitura imediata em qualquer casa do tabuleiro P&B.
+    final outlineColor =
+        isWhite ? NoirPalette.pieceGoldEdge : NoirPalette.pieceWoodEdge;
+    final fillColor =
+        isWhite ? NoirPalette.pieceGold : NoirPalette.pieceWood;
+    final haloColor = isWhite
+        ? Colors.black.withValues(alpha: 0.55)
+        : NoirPalette.pieceGold.withValues(alpha: 0.30);
 
     return SizedBox(
       width: size,

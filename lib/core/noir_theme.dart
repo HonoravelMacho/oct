@@ -11,6 +11,11 @@ class NoirPalette {
   static const Color border = Color(0xFF2E2E2E);
   static const Color boardLight = Color(0xFFE8E8E2);
   static const Color boardDark = Color(0xFF151515);
+  // Peças: ouro (brancas) e madeira (pretas) sobre o tabuleiro P&B.
+  static const Color pieceGold = Color(0xFFE8B93C);
+  static const Color pieceGoldEdge = Color(0xFF4A2F0B);
+  static const Color pieceWood = Color(0xFF8A5A2B);
+  static const Color pieceWoodEdge = Color(0xFFFFE9C4);
   static const Color highlightDot = Color(0x99BDBDBD);
   static const Color lastMoveTint = Color(0x26FFFFFF);
 }

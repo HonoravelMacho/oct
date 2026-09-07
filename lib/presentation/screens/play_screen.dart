@@ -109,6 +109,16 @@ class _PlayScreenState extends State<PlayScreen> {
                         ? (v) => controller.setBotRating(v.round())
                         : null,
                   ),
+                  Text(
+                    'MOTOR SKILL ${controller.selectedBot.skillLevel} · '
+                    'LIMITE ~${controller.selectedBot.uciElo}'
+                    '${controller.botRating < 1100 ? ' + LANCES CASUAIS' : ''}',
+                    style: const TextStyle(
+                        fontSize: 8.5,
+                        letterSpacing: 1.5,
+                        color: NoirPalette.textDim),
+                  ),
+                  const SizedBox(height: 6),
                 ],
               ),
             ),
