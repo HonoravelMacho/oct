@@ -35,6 +35,13 @@ class TacticsController extends ChangeNotifier {
   bool autoSolving = false;
   int _solveGen = 0;
 
+  /// Lado de quem resolve (oposto ao lado a mover no FEN: o 1º lance da
+  /// linha é do oponente e é tocado sozinho na abertura).
+  String solverSide = 'w';
+
+  /// Verdadeiro enquanto o lance de abertura do oponente ainda não tocou.
+  bool waitingOpening = false;
+
   /// Últimos exercícios exibidos: o PRÓXIMA nunca os repete em seguida.
   final List<String> _recentIds = [];
   static const int _recentCap = 50;
@@ -66,6 +73,7 @@ class TacticsController extends ChangeNotifier {
     feedback = TacticFeedback.none;
     hintFrom = null;
     autoSolving = false;
+    waitingOpening = false;
     _solveGen++;
     notifyListeners();
 
@@ -86,10 +94,43 @@ class TacticsController extends ChangeNotifier {
     board = ch.Chess.fromFEN(puzzle.fen);
     solutionIndex = 0;
     wrongAttempts = 0;
+    hintFrom = null;
+    lastMoveSquares = [];
+    solverSide = _fenSide(puzzle.fen) == 'w' ? 'b' : 'w';
+
+    if (puzzle.movesUci.length > 1) {
+      // A linha começa com o lance do oponente: toca sozinho e passa a vez.
+      waitingOpening = true;
+      feedback = TacticFeedback.none;
+      notifyListeners();
+      final gen = _solveGen;
+      Future.delayed(const Duration(milliseconds: 650), () {
+        if (gen != _solveGen || !identical(currentPuzzle, puzzle)) return;
+        final mv = puzzle.movesUci[0];
+        applySolutionMove(
+          mv.substring(0, 2),
+          mv.substring(2, 4),
+          mv.length > 4 ? mv[4] : null,
+        );
+        solutionIndex = 1;
+        lastMoveSquares = [mv.substring(0, 2), mv.substring(2, 4)];
+        lastExpectedUci =
+            puzzle.movesUci.length > 1 ? puzzle.movesUci[1] : '';
+        waitingOpening = false;
+        notifyListeners();
+      });
+      return true;
+    }
+    // Linha de 1 lance (legado): o solver começa.
     lastExpectedUci = puzzle.movesUci.isEmpty ? '' : puzzle.movesUci.first;
     feedback = TacticFeedback.none;
     notifyListeners();
     return true;
+  }
+
+  static String _fenSide(String fen) {
+    final parts = fen.split(' ');
+    return parts.length > 1 && parts[1] == 'b' ? 'b' : 'w';
   }
 
   /// Sorteia evitando os recentes; em tema pequeno, evita ao menos o atual.
@@ -113,7 +154,7 @@ class TacticsController extends ChangeNotifier {
     if (puzzle == null || solutionIndex >= puzzle.movesUci.length) {
       return false;
     }
-    if (autoSolving) return false;
+    if (autoSolving || waitingOpening) return false;
 
     final expected = puzzle.movesUci[solutionIndex];
     final attemptUci = '$from$to${promotion ?? ''}'.toLowerCase();
@@ -212,7 +253,7 @@ class TacticsController extends ChangeNotifier {
   /// Dica: destaca a casa de origem do próximo lance da solução.
   void showHint() {
     final puzzle = currentPuzzle;
-    if (puzzle == null || autoSolving) return;
+    if (puzzle == null || autoSolving || waitingOpening) return;
     if (solutionIndex >= puzzle.movesUci.length) return;
     if (feedback == TacticFeedback.solved ||
         feedback == TacticFeedback.revealed) {
@@ -227,7 +268,12 @@ class TacticsController extends ChangeNotifier {
   /// Não conta como resolvida: não dá ELO nem consome/gasta crédito.
   Future<void> autoSolve() async {
     final puzzle = currentPuzzle;
-    if (puzzle == null || autoSolving || mode != TacticMode.solving) return;
+    if (puzzle == null ||
+        autoSolving ||
+        waitingOpening ||
+        mode != TacticMode.solving) {
+      return;
+    }
     if (solutionIndex >= puzzle.movesUci.length) return;
     autoSolving = true;
     hintFrom = null;

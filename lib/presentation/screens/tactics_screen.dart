@@ -150,7 +150,7 @@ class _SolverView extends StatelessWidget {
         break;
       default:
         feedbackText =
-            'LANCE DAS ${_sideLabel(puzzle?.fen ?? '')}';
+            'LANCE DAS ${controller.solverSide == 'w' ? 'BRANCAS' : 'NEGRAS'}';
     }
     if (controller.hintFrom != null &&
         controller.feedback != TacticFeedback.solved &&
@@ -191,10 +191,11 @@ class _SolverView extends StatelessWidget {
                 child: ChessBoard(
                   key: ValueKey('board_${puzzle?.id}_${controller.wrongAttempts}'),
                   fen: controller.board.fen,
-                  orientation: _solverOrientation(puzzle?.fen),
-                  interactiveColor: _solverSide(puzzle?.fen),
+                  orientation: controller.solverSide,
+                  interactiveColor: controller.solverSide,
                   enabled: puzzle != null &&
                       !controller.autoSolving &&
+                      !controller.waitingOpening &&
                       controller.feedback != TacticFeedback.solved &&
                       controller.feedback != TacticFeedback.revealed &&
                       controller.feedback != TacticFeedback.exhausted,
@@ -213,7 +214,8 @@ class _SolverView extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: controller.autoSolving
+                  onPressed: controller.autoSolving ||
+                          controller.waitingOpening
                       ? null
                       : () => controller.showHint(),
                   child: Text(controller.hintsUsed > 0
@@ -225,7 +227,8 @@ class _SolverView extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: OutlinedButton(
-                  onPressed: controller.autoSolving
+                  onPressed: controller.autoSolving ||
+                          controller.waitingOpening
                       ? null
                       : () => controller.autoSolve(),
                   child: Text(controller.autoSolving
@@ -258,18 +261,4 @@ class _SolverView extends StatelessWidget {
       ),
     );
   }
-
-  String _sideLabel(String fen) {
-    final parts = fen.split(' ');
-    if (parts.length < 2) return 'VOCE';
-    return parts[1] == 'w' ? 'BRANCAS' : 'NEGRAS';
-  }
-
-  String _solverSide(String? fen) {
-    final parts = (fen ?? '').split(' ');
-    if (parts.length < 2) return 'w';
-    return parts[1];
-  }
-
-  String _solverOrientation(String? fen) => _solverSide(fen);
 }
