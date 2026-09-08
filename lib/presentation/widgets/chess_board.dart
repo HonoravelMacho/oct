@@ -3,24 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/noir_theme.dart';
 
-const Map<String, String> _whiteGlyphs = {
-  'k': '\u2654',
-  'q': '\u2655',
-  'r': '\u2656',
-  'b': '\u2657',
-  'n': '\u2658',
-  'p': '\u2659',
-};
-
-const Map<String, String> _blackGlyphs = {
-  'k': '\u265A',
-  'q': '\u265B',
-  'r': '\u265C',
-  'b': '\u265D',
-  'n': '\u265E',
-  'p': '\u265F',
-};
-
 Map<String, String> parseFENBoard(String fen) {
   final result = <String, String>{};
   final rows = fen.split(' ').first.split('/');
@@ -275,57 +257,199 @@ class _PieceGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isWhite = charCode.toUpperCase() == charCode;
-    // \uFE0E força apresentação em TEXTO: sem ele, alguns glifos
-    // (ex: o peão preto ♟) caem no font de emoji do aparelho e ignoram
-    // as cores ouro/madeira do tema.
-    final base =
-        (isWhite ? _whiteGlyphs : _blackGlyphs)[charCode.toLowerCase()] ?? '?';
-    final glyph = '$base\uFE0E';
-    final fontSize = size * 0.78;
-
-    // Ouro (brancas) × madeira (pretas): contorno grosso + halo para
-    // leitura imediata em qualquer casa do tabuleiro P&B.
-    final outlineColor =
-        isWhite ? NoirPalette.pieceGoldEdge : NoirPalette.pieceWoodEdge;
-    final fillColor =
-        isWhite ? NoirPalette.pieceGold : NoirPalette.pieceWood;
-    final haloColor = isWhite
-        ? Colors.black.withValues(alpha: 0.55)
-        : NoirPalette.pieceGold.withValues(alpha: 0.30);
-
     return SizedBox(
       width: size,
       height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(
-            glyph,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: fontSize,
-              height: 1,
-              foreground: Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeJoin = StrokeJoin.round
-                ..strokeWidth = fontSize * 0.10
-                ..color = outlineColor,
-            ),
-          ),
-          Text(
-            glyph,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: fontSize,
-              height: 1,
-              color: fillColor,
-              shadows: [
-                Shadow(color: haloColor, blurRadius: fontSize * 0.10),
-              ],
-            ),
-          ),
-        ],
+      child: CustomPaint(
+        painter: _PiecePainter(
+          kind: charCode.toLowerCase(),
+          isWhite: isWhite,
+        ),
       ),
     );
   }
+}
+
+/// Peças desenhadas em vetor (ouro × madeira): independem da fonte do
+/// aparelho, então ficam idênticas em qualquer celular.
+class _PiecePainter extends CustomPainter {
+  _PiecePainter({required this.kind, required this.isWhite});
+
+  final String kind;
+  final bool isWhite;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final u = size.width / 100;
+    final fill = Paint()
+      ..color =
+          isWhite ? NoirPalette.pieceGold : NoirPalette.pieceWood;
+    final edge = Paint()
+      ..color = isWhite
+          ? NoirPalette.pieceGoldEdge
+          : NoirPalette.pieceWoodEdge
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5 * u
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    final detail = Paint()
+      ..color = isWhite
+          ? NoirPalette.pieceGoldEdge
+          : NoirPalette.pieceWoodEdge;
+    final slit = Paint()
+      ..color = detail.color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3 * u
+      ..strokeCap = StrokeCap.round;
+
+    void shape(Path p) {
+      canvas.drawPath(p, edge);
+      canvas.drawPath(p, fill);
+    }
+
+    void ball(double x, double y, double r) {
+      final c = Offset(x * u, y * u);
+      canvas.drawCircle(c, r * u, edge);
+      canvas.drawCircle(c, r * u, fill);
+    }
+
+    void bar(double x, double y, double w, double h) {
+      final r = RRect.fromLTRBR(
+        x * u,
+        y * u,
+        (x + w) * u,
+        (y + h) * u,
+        Radius.circular(3 * u),
+      );
+      canvas.drawRRect(r, edge);
+      canvas.drawRRect(r, fill);
+    }
+
+    Path poly(List<(double, double)> pts) {
+      final p = Path();
+      p.moveTo(pts.first.$1 * u, pts.first.$2 * u);
+      for (final pt in pts.skip(1)) {
+        p.lineTo(pt.$1 * u, pt.$2 * u);
+      }
+      p.close();
+      return p;
+    }
+
+    // Base comum.
+    bar(24, 80, 52, 9);
+
+    switch (kind) {
+      case 'p':
+        shape(poly([
+          (38, 78),
+          (44, 58),
+          (56, 58),
+          (62, 78),
+        ]));
+        bar(37, 70, 26, 7);
+        ball(50, 44, 13);
+      case 'r':
+        shape(Path()
+          ..moveTo(32 * u, 38 * u)
+          ..lineTo(32 * u, 20 * u)
+          ..lineTo(39 * u, 20 * u)
+          ..lineTo(39 * u, 28 * u)
+          ..lineTo(46 * u, 28 * u)
+          ..lineTo(46 * u, 20 * u)
+          ..lineTo(54 * u, 20 * u)
+          ..lineTo(54 * u, 28 * u)
+          ..lineTo(61 * u, 28 * u)
+          ..lineTo(61 * u, 20 * u)
+          ..lineTo(68 * u, 20 * u)
+          ..lineTo(68 * u, 38 * u)
+          ..close());
+        shape(poly([
+          (36, 40),
+          (64, 40),
+          (60, 76),
+          (40, 76),
+        ]));
+        bar(38, 68, 24, 6);
+      case 'n':
+        shape(poly([
+          (38, 78),
+          (38, 60),
+          (30, 52),
+          (28, 44),
+          (32, 40),
+          (37, 41),
+          (39, 30),
+          (45, 24),
+          (53, 25),
+          (50, 31),
+          (57, 35),
+          (65, 41),
+          (62, 49),
+          (56, 47),
+          (54, 58),
+          (58, 78),
+        ]));
+        canvas.drawCircle(Offset(45 * u, 39 * u), 2.4 * u, detail);
+      case 'b':
+        ball(50, 17, 4.5);
+        shape(Path()
+          ..moveTo(50 * u, 26 * u)
+          ..cubicTo(41 * u, 36 * u, 37 * u, 48 * u, 37 * u, 58 * u)
+          ..lineTo(63 * u, 58 * u)
+          ..cubicTo(63 * u, 48 * u, 59 * u, 36 * u, 50 * u, 26 * u)
+          ..close());
+        canvas.drawLine(
+            Offset(50 * u, 34 * u), Offset(50 * u, 52 * u), slit);
+        bar(39, 58, 22, 6);
+        shape(poly([
+          (42, 66),
+          (58, 66),
+          (62, 78),
+          (38, 78),
+        ]));
+      case 'q':
+        ball(32, 25, 4);
+        ball(50, 19, 4.5);
+        ball(68, 25, 4);
+        shape(poly([
+          (32, 54),
+          (34, 31),
+          (43, 43),
+          (50, 29),
+          (57, 43),
+          (66, 31),
+          (68, 54),
+        ]));
+        bar(37, 62, 26, 6);
+        shape(poly([
+          (40, 70),
+          (60, 70),
+          (62, 78),
+          (38, 78),
+        ]));
+      case 'k':
+        bar(46, 14, 8, 24);
+        bar(38, 21, 24, 7);
+        shape(poly([
+          (34, 56),
+          (37, 37),
+          (45, 47),
+          (50, 37),
+          (55, 47),
+          (63, 37),
+          (66, 56),
+        ]));
+        bar(37, 62, 26, 6);
+        shape(poly([
+          (40, 70),
+          (60, 70),
+          (62, 78),
+          (38, 78),
+        ]));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PiecePainter old) =>
+      old.kind != kind || old.isWhite != isWhite;
 }

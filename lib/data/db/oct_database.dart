@@ -9,7 +9,7 @@ class OctDatabase {
   final sqflite.Database _db;
 
   static const String dbName = 'oct_puzzles.db';
-  static const int dbVersion = 2;
+  static const int dbVersion = 3;
 
   static OctDatabase? _instance;
 
