@@ -25,6 +25,7 @@ class AppConstants {
   static const String prefGamesPlayed = 'stat_games_played';
   static const String prefTacticsSolved = 'stat_tactics_solved';
   static const String prefPremiumUnlocked = 'premium_unlocked';
+  static const String prefFullBaseInstalled = 'full_base_installed';
 
   // Barrinha de força do bot (Fase 1): 250 -> 2500, passos de 50.
   static const int minBotElo = 250;

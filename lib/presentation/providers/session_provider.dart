@@ -10,6 +10,7 @@ import '../../data/engine/chess_engine.dart';
 import '../../data/engine/stockfish_bootstrap.dart';
 import '../../data/repositories/stats_repository.dart';
 import '../../domain/entities/bot_profile.dart';
+import '../../domain/services/game_review_service.dart';
 
 class SessionProvider extends ChangeNotifier {
   SessionProvider(this._prefs) {
@@ -31,10 +32,12 @@ class SessionProvider extends ChangeNotifier {
 
   StatsRepository get stats => _stats;
 
-  bool get premiumUnlocked => _stats.premiumUnlocked;
-  int get creditsRemaining => premiumUnlocked ? -1 : _stats.usage.creditsRemaining;
-  bool get canStartActivity =>
-      premiumUnlocked || _stats.usage.canStartActivity;
+  /// App 100% gratuito: sem créditos, sem anúncios, sem paywall.
+  /// [premiumUnlocked] virou apelido de "versão completa instalada".
+  bool get premiumUnlocked => _stats.fullBaseInstalled;
+  bool get fullBaseInstalled => _stats.fullBaseInstalled;
+  int get creditsRemaining => -1;
+  bool get canStartActivity => true;
   int get gameElo => _stats.gameElo;
   int get tacticElo => _stats.tacticElo;
 
@@ -95,8 +98,8 @@ class SessionProvider extends ChangeNotifier {
   }
 
   bool consumeGameCredit() {
-    if (premiumUnlocked) return true;
-    return _stats.usage.consumeForGame();
+    // 100% gratuito: nunca bloqueia.
+    return true;
   }
 
   void grantRewardCycle() {
@@ -105,7 +108,22 @@ class SessionProvider extends ChangeNotifier {
   }
 
   void setPremiumUnlocked(bool value) {
-    _stats.setPremiumUnlocked(value);
+    _stats.setFullBaseInstalled(value);
+    notifyListeners();
+  }
+
+  void setFullBaseInstalled(bool value) {
+    _stats.setFullBaseInstalled(value);
+    notifyListeners();
+  }
+
+  void recordGameReview({
+    required bool userWhite,
+    required GameReview review,
+  }) {
+    try {
+      _stats.recordGameReview(userWhite: userWhite, review: review);
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -136,8 +154,8 @@ class SessionProvider extends ChangeNotifier {
   }
 
   bool consumeTacticCredit() {
-    if (premiumUnlocked) return false;
-    return _stats.usage.onTacticSolved();
+    // 100% gratuito: táticas nunca consomem crédito.
+    return false;
   }
 
   void refresh() => notifyListeners();

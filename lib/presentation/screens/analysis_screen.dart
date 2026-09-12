@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/noir_theme.dart';
+import '../../domain/entities/puzzle.dart';
 import '../../domain/services/game_review_service.dart';
+import '../../domain/services/study_recommendation_service.dart';
 import '../providers/play_controller.dart';
 import '../providers/session_provider.dart';
+import '../providers/tactics_controller.dart';
 import '../widgets/chess_board.dart';
 
 const Map<MoveLabel, Color> _labelColors = {
@@ -20,9 +23,9 @@ const Map<MoveLabel, Color> _labelColors = {
   MoveLabel.blunder: Color(0xFFF87171),
 };
 
-/// Análise pós-partida 100% local: revisão do motor (precisão, nível
-/// estimado, habilidades, classificação de lances, abertura, gráfico de
-/// avaliação) + estatísticas clássicas da partida.
+/// Análise pós-partida 100% local e navegável: toque num lance para ver
+/// o frame do tabuleiro, use avançar/voltar, veja os piores lances com
+/// profundidade e receba recomendações do que estudar.
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
 
@@ -31,6 +34,8 @@ class AnalysisScreen extends StatefulWidget {
 }
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
+  int? _selectedPly; // null = posição final
+
   @override
   void initState() {
     super.initState();
@@ -50,14 +55,18 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       );
     }
 
+    final n = c.historySan.length;
+    var ply = _selectedPly ?? n;
+    ply = ply.clamp(0, n);
+    final review = c.gameReview;
+    final userWhite = c.userColor == 'w';
+
     final resultLabel = switch (c.gameResult) {
       'win' => 'VITORIA',
       'loss' => 'DERROTA',
       _ => 'EMPATE',
     };
     final deltaTxt = '${c.eloDelta >= 0 ? '+' : ''}${c.eloDelta}';
-    final review = c.gameReview;
-    final userWhite = c.userColor == 'w';
 
     return Scaffold(
       appBar: AppBar(title: const Text('ANALISE DA PARTIDA')),
@@ -79,7 +88,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                         letterSpacing: 3)),
                 const SizedBox(height: 6),
                 Text(
-                  'RATING OCT ${c.eloBefore} → ${c.eloAfter} ($deltaTxt)',
+                  'RATING OFFLINE ${c.eloBefore} → ${c.eloAfter} ($deltaTxt)',
                   style: const TextStyle(
                       fontSize: 12,
                       letterSpacing: 1.5,
@@ -145,7 +154,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'PROFUNDA PENSA MAIS (PODE LEVAR MINUTOS)',
+            'PROFUNDA PENSA MAIS (PODE LEVAR MINUTOS) · TUDO OFFLINE',
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 8, letterSpacing: 1.5, color: NoirPalette.textDim),
@@ -158,18 +167,107 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             userWhite: userWhite,
           ),
           const SizedBox(height: 12),
-          AspectRatio(
-            aspectRatio: 1,
-            child: ChessBoard(
-              fen: c.game.fen,
-              orientation: c.userColor,
-              interactiveColor: 'none',
-              enabled: false,
-              lastMoveSquares: c.lastMoveSquares,
-              onMove: (_, _, _) {},
+          // ---- Navegador de lances ----
+          const _SectionTitle('NAVEGAR PELA PARTIDA - TOQUE NUM LANCE'),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: NoirPalette.border),
+              color: NoirPalette.surface,
+            ),
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              children: [
+                AspectRatio(
+                  aspectRatio: 1,
+                  child: ChessBoard(
+                    fen: c.fenAtPly(ply),
+                    orientation: c.userColor,
+                    interactiveColor: 'none',
+                    enabled: false,
+                    lastMoveSquares: c.lastMoveAtPly(ply),
+                    onMove: (_, _, _) {},
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  ply == 0
+                      ? 'POSIÇÃO INICIAL'
+                      : '${(ply - 1) ~/ 2 + 1}.${(ply - 1) % 2 == 1 ? '..' : ''} ${c.historySan[ply - 1]}'
+                          '${review != null && ply - 1 < review.labels.length ? ' · ${GameReviewService.labelNames[review.labels[ply - 1]]}' : ''}'
+                          '${review != null && ply < review.evalTexts.length ? ' · ${review.evalTexts[ply]}' : ''}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, letterSpacing: 1),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: ply > 0
+                            ? () => setState(() => _selectedPly = 0)
+                            : null,
+                        child: const Text('|◀'),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: ply > 0
+                            ? () => setState(() => _selectedPly = ply - 1)
+                            : null,
+                        child: const Text('◀'),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Center(
+                        child: Text('$ply / $n',
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: ply < n
+                            ? () => setState(() => _selectedPly = ply + 1)
+                            : null,
+                        child: const Text('▶'),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: ply < n
+                            ? () => setState(() => _selectedPly = n)
+                            : null,
+                        child: const Text('▶|'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
+          // ---- Piores lances (análise profunda) ----
+          if (review != null) ...[
+            const _SectionTitle('SEUS PIORES LANCES (APROFUNDE AQUI)'),
+            const SizedBox(height: 6),
+            _WorstMoves(
+              controller: c,
+              review: review,
+              userWhite: userWhite,
+              onJump: (p) => setState(() => _selectedPly = p),
+            ),
+            const SizedBox(height: 12),
+            const _SectionTitle('O QUE ESTUDAR DEPOIS DESTA PARTIDA'),
+            const SizedBox(height: 6),
+            _StudyAfterGame(review: review, userWhite: userWhite),
+            const SizedBox(height: 12),
+          ],
+          const SizedBox(height: 4),
           const _SectionTitle('BALANCO DE MATERIAL'),
           const SizedBox(height: 6),
           _MaterialStrip(timeline: c.materialTimeline()),
@@ -205,6 +303,25 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       : '-'),
             ],
           ),
+          const SizedBox(height: 12),
+          const _SectionTitle('TODOS OS LANCES (TOQUE P/ VER O FRAME)'),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+                border: Border.all(color: NoirPalette.border)),
+            padding: const EdgeInsets.all(10),
+            child: review == null
+                ? const Text('AGUARDE A REVISÃO DO MOTOR...',
+                    style: TextStyle(fontSize: 11, letterSpacing: 1))
+                : _MoveTable(
+                    history: c.historySan,
+                    labels: review.labels,
+                    evalTexts: review.evalTexts,
+                    losses: review.losses,
+                    selectedPly: ply,
+                    onSelect: (p) => setState(() => _selectedPly = p),
+                  ),
+          ),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -229,6 +346,147 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _WorstMoves extends StatelessWidget {
+  const _WorstMoves({
+    required this.controller,
+    required this.review,
+    required this.userWhite,
+    required this.onJump,
+  });
+
+  final PlayController controller;
+  final GameReview review;
+  final bool userWhite;
+  final void Function(int ply) onJump;
+
+  @override
+  Widget build(BuildContext context) {
+    final plies = controller.worstUserPlies(count: 3);
+    if (plies.isEmpty) {
+      return Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          border: Border.all(color: NoirPalette.border),
+          color: NoirPalette.surface,
+        ),
+        padding: const EdgeInsets.all(12),
+        child: const Text(
+          'NENHUM ERRO GRAVE — PARTIDA SÓLIDA. VEJA O GRÁFICO E AS ETIQUETAS.',
+          style: TextStyle(fontSize: 10.5, letterSpacing: 0.8),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (final i in plies)
+          Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              border: Border.all(color: NoirPalette.border),
+              color: NoirPalette.surface,
+            ),
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${i ~/ 2 + 1}.${i % 2 == 1 ? '..' : ''} ${controller.historySan[i]}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: _labelColors[review.labels[i]],
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${GameReviewService.labelNames[review.labels[i]]} · '
+                        'PERDEU ${review.losses[i].toStringAsFixed(1)}% · '
+                        'AVAL ${review.evalTexts[i + 1]}',
+                        style: const TextStyle(
+                            fontSize: 9.5,
+                            letterSpacing: 0.5,
+                            color: NoirPalette.textDim),
+                      ),
+                    ],
+                  ),
+                ),
+                OutlinedButton(
+                  onPressed: () => onJump(i + 1),
+                  child: const Text('VER'),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _StudyAfterGame extends StatelessWidget {
+  const _StudyAfterGame({required this.review, required this.userWhite});
+
+  final GameReview review;
+  final bool userWhite;
+
+  @override
+  Widget build(BuildContext context) {
+    final recs = StudyRecommendationService.fromReview(
+      review,
+      userWhite: userWhite,
+    );
+    return Column(
+      children: [
+        for (final r in recs)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: NoirPalette.border),
+              color: NoirPalette.surface,
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        PuzzleCatalog.labelOf(r.theme).toUpperCase(),
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        r.reason,
+                        style: const TextStyle(
+                            fontSize: 9.5,
+                            letterSpacing: 0.8,
+                            color: NoirPalette.textDim),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                OutlinedButton(
+                  onPressed: () {
+                    context.read<TacticsController>().openTheme(r.theme);
+                    Navigator.pushNamed(context, '/tactics');
+                  },
+                  child: const Text('TREINAR'),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -451,19 +709,6 @@ class _ReviewSection extends StatelessWidget {
             style: const TextStyle(fontSize: 11, letterSpacing: 1),
           ),
         ),
-        const SizedBox(height: 12),
-        const _SectionTitle('LANCES CLASSIFICADOS'),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-              border: Border.all(color: NoirPalette.border)),
-          padding: const EdgeInsets.all(10),
-          child: _MoveTable(
-            history: controller.historySan,
-            labels: r.labels,
-            evalTexts: r.evalTexts,
-          ),
-        ),
       ],
     );
   }
@@ -668,12 +913,21 @@ class _EvalChartPainter extends CustomPainter {
 }
 
 class _MoveTable extends StatelessWidget {
-  const _MoveTable(
-      {required this.history, required this.labels, required this.evalTexts});
+  const _MoveTable({
+    required this.history,
+    required this.labels,
+    required this.evalTexts,
+    required this.losses,
+    required this.selectedPly,
+    required this.onSelect,
+  });
 
   final List<String> history;
   final List<MoveLabel> labels;
   final List<String> evalTexts;
+  final List<double> losses;
+  final int selectedPly;
+  final void Function(int ply) onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -681,22 +935,39 @@ class _MoveTable extends StatelessWidget {
     for (var i = 0; i < history.length; i += 2) {
       final n = i ~/ 2 + 1;
       rows.add(Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
                 width: 30,
-                child: Text('$n.',
-                    style: const TextStyle(
-                        fontSize: 11, color: NoirPalette.textDim))),
-            Expanded(child: _MoveCell(san: history[i], label: labels[i], evalTxt: evalTexts[i + 1])),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('$n.',
+                      style: const TextStyle(
+                          fontSize: 11, color: NoirPalette.textDim)),
+                )),
+            Expanded(
+                child: _MoveCell(
+              san: history[i],
+              label: labels[i],
+              evalTxt: evalTexts[i + 1],
+              loss: losses.length > i ? losses[i] : 0,
+              selected: selectedPly == i + 1,
+              onTap: () => onSelect(i + 1),
+            )),
             if (i + 1 < history.length)
               Expanded(
                   child: _MoveCell(
-                      san: history[i + 1],
-                      label: labels[i + 1],
-                      evalTxt: evalTexts[i + 2])),
+                san: history[i + 1],
+                label: labels[i + 1],
+                evalTxt: evalTexts[i + 2],
+                loss: losses.length > i + 1 ? losses[i + 1] : 0,
+                selected: selectedPly == i + 2,
+                onTap: () => onSelect(i + 2),
+              ))
+            else
+              const Expanded(child: SizedBox.shrink()),
           ],
         ),
       ));
@@ -706,28 +977,49 @@ class _MoveTable extends StatelessWidget {
 }
 
 class _MoveCell extends StatelessWidget {
-  const _MoveCell(
-      {required this.san, required this.label, required this.evalTxt});
+  const _MoveCell({
+    required this.san,
+    required this.label,
+    required this.evalTxt,
+    required this.loss,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String san;
   final MoveLabel label;
   final String evalTxt;
+  final double loss;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final color = _labelColors[label] ?? Colors.white;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('${GameReviewService.labelEmojis[label]} $san',
-            style: TextStyle(
-                fontSize: 12.5, fontWeight: FontWeight.w700, color: color)),
-        Text('${GameReviewService.labelNames[label]} · $evalTxt',
-            style: const TextStyle(
-                fontSize: 8.5,
-                letterSpacing: 0.5,
-                color: NoirPalette.textDim)),
-      ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+              color: selected ? Colors.white : Colors.transparent, width: 1),
+          color: selected ? NoirPalette.surfaceHigh : Colors.transparent,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${GameReviewService.labelEmojis[label]} $san',
+                style: TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.w700, color: color)),
+            Text(
+                '${GameReviewService.labelNames[label]} · $evalTxt${loss > 7 ? ' · -${loss.toStringAsFixed(0)}%' : ''}',
+                style: const TextStyle(
+                    fontSize: 8.5,
+                    letterSpacing: 0.5,
+                    color: NoirPalette.textDim)),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_constants.dart';
 import '../../core/noir_theme.dart';
-import '../credit_gate.dart';
 import '../providers/session_provider.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -19,7 +18,7 @@ class HomeScreen extends StatelessWidget {
           children: const [
             Text(AppConstants.appName),
             Text(
-              AppConstants.appTaglineUpper,
+              'LABORATORIO OFFLINE DE XADREZ',
               style: TextStyle(
                 fontSize: 9,
                 letterSpacing: 4,
@@ -28,6 +27,13 @@ class HomeScreen extends StatelessWidget {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'CONFIGURAÇÕES',
+            onPressed: () => Navigator.pushNamed(context, '/settings'),
+            icon: const Icon(Icons.settings_outlined, size: 20),
+          ),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -59,17 +65,24 @@ class HomeScreen extends StatelessWidget {
               _MenuButton(
                 label: 'JOGAR VS BOT',
                 subtitle: session.engineReady
-                    ? 'MOTOR: ${session.engineName}'
+                    ? 'MOTOR: ${session.engineName} · VALE RATING OFFLINE'
                     : 'INICIANDO MOTOR...',
                 enabled: session.dbReady,
-                onTap: () => _openWithGate(context, '/play'),
+                onTap: () => Navigator.pushNamed(context, '/play'),
               ),
               const SizedBox(height: 12),
               _MenuButton(
                 label: 'TREINAR TATICAS',
                 subtitle: 'TEMAS - FORK, MATE EM 2 E MAIS',
                 enabled: session.dbReady,
-                onTap: () => _openWithGate(context, '/tactics'),
+                onTap: () => Navigator.pushNamed(context, '/tactics'),
+              ),
+              const SizedBox(height: 12),
+              _MenuButton(
+                label: 'DASHBOARD',
+                subtitle: 'PONTOS FORTES, FRACOS E O QUE ESTUDAR',
+                enabled: true,
+                onTap: () => Navigator.pushNamed(context, '/dashboard'),
               ),
               const SizedBox(height: 12),
               _MenuButton(
@@ -80,16 +93,25 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _MenuButton(
-                label: session.premiumUnlocked ? 'PREMIUM ATIVO' : 'SEJA PREMIUM',
-                subtitle: session.premiumUnlocked
-                    ? 'BASE COMPLETA DISPONIVEL'
-                    : 'SEM ANUNCIOS + 6 MILHOES DE TATICAS',
+                label: session.fullBaseInstalled
+                    ? 'VERSAO COMPLETA INSTALADA'
+                    : 'BAIXAR VERSAO COMPLETA',
+                subtitle: session.fullBaseInstalled
+                    ? 'BASE MASSIVA DISPONIVEL OFFLINE'
+                    : 'GRATIS - BAIXE QUANDO TIVER UM WIFI BOM',
                 enabled: true,
                 onTap: () => Navigator.pushNamed(context, '/premium'),
               ),
+              const SizedBox(height: 12),
+              _MenuButton(
+                label: 'CONFIGURACOES',
+                subtitle: 'PREFERENCIAS DO LABORATORIO',
+                enabled: true,
+                onTap: () => Navigator.pushNamed(context, '/settings'),
+              ),
               const SizedBox(height: 24),
-              Text(
-                '100% OFFLINE - PROCESSAMENTO LOCAL',
+              const Text(
+                '100% GRATUITO - 100% OFFLINE',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 9,
@@ -102,24 +124,6 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _openWithGate(BuildContext context, String route) async {
-    final session = context.read<SessionProvider>();
-    if (session.premiumUnlocked || session.canStartActivity) {
-      if (!context.mounted) return;
-      Navigator.pushNamed(context, route);
-      return;
-    }
-    final wantsAd = await showCreditGate(context);
-    if (!wantsAd) return;
-    if (!context.mounted) return;
-    final earned = await session.showRewardedFlow(context);
-    if (!earned) return;
-    session.grantRewardCycle();
-    if (!context.mounted) return;
-    showSnack(context, '+${AppConstants.freeCycleLimit} atividades liberadas');
-    Navigator.pushNamed(context, route);
   }
 }
 
@@ -139,16 +143,12 @@ class _StatusHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _StatBadge(label: 'ELO PARTIDAS', value: '${session.gameElo}'),
+          _StatBadge(label: 'RATING JOGOS', value: '${session.gameElo}'),
           Container(width: 1, height: 36, color: NoirPalette.border),
-          _StatBadge(label: 'ELO TATICAS', value: '${session.tacticElo}'),
+          _StatBadge(label: 'RATING TATICAS', value: '${session.tacticElo}'),
           Container(width: 1, height: 36, color: NoirPalette.border),
-          session.premiumUnlocked
-              ? const _StatBadge(label: 'PLANO', value: 'PREMIUM')
-              : _StatBadge(
-                  label: 'CREDITOS',
-                  value:
-                      '${session.creditsRemaining}/${AppConstants.freeCycleLimit}'),
+          _StatBadge(
+              label: 'PARTIDAS', value: '${session.stats.gamesPlayed}'),
         ],
       ),
     );

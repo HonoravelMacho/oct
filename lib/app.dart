@@ -7,12 +7,14 @@ import 'presentation/providers/play_controller.dart';
 import 'presentation/providers/premium_provider.dart';
 import 'presentation/providers/session_provider.dart';
 import 'presentation/providers/tactics_controller.dart';
+import 'presentation/screens/dashboard_screen.dart';
 import 'presentation/screens/home_screen.dart';
 import 'presentation/screens/analysis_screen.dart';
 import 'presentation/screens/play_screen.dart';
 import 'presentation/screens/premium_screen.dart';
 import 'presentation/screens/progress_screen.dart';
 import 'presentation/screens/reward_sim_screen.dart';
+import 'presentation/screens/settings_screen.dart';
 import 'presentation/screens/tactics_screen.dart';
 
 class OctApp extends StatefulWidget {
@@ -56,6 +58,8 @@ class _OctAppState extends State<OctApp> {
           '/tactics': (_) => const TacticsScreen(),
           '/progress': (_) => const ProgressScreen(),
           '/premium': (_) => const PremiumScreen(),
+          '/dashboard': (_) => const DashboardScreen(),
+          '/settings': (_) => const SettingsScreen(),
           '/reward_sim': (_) => const RewardSimScreen(),
         },
       ),

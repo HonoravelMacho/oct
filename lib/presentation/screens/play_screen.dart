@@ -243,17 +243,10 @@ class _PlayScreenState extends State<PlayScreen> {
                 Expanded(
                   flex: 2,
                   child: ElevatedButton(
-                    onPressed: session.premiumUnlocked ||
-                            session.canStartActivity
-                        ? () async {
-                            final gateOk = await _maybeGate(context);
-                            if (!gateOk || !context.mounted) return;
-                            controller.startNewGame();
-                          }
-                        : null,
+                    onPressed: () => controller.startNewGame(),
                     child: Text(controller.phase == GamePhase.idle ||
                             controller.phase == GamePhase.finished
-                        ? 'NOVA PARTIDA'
+                        ? 'NOVA PARTIDA (GRATIS)'
                         : 'EM ANDAMENTO'),
                   ),
                 ),
@@ -268,20 +261,6 @@ class _PlayScreenState extends State<PlayScreen> {
   String _materialLabel(int diff) {
     if (diff == 0) return 'IGUAL';
     return '${diff > 0 ? '+' : ''}$diff PARA VOCE';
-  }
-
-  Future<bool> _maybeGate(BuildContext context) async {
-    final session = context.read<SessionProvider>();
-    if (session.premiumUnlocked || session.canStartActivity) return true;
-    final wants = await showCreditGate(context);
-    if (!wants) return false;
-    if (!context.mounted) return false;
-    final earned = await session.showRewardedFlow(context);
-    if (!earned) return false;
-    session.grantRewardCycle();
-    if (!context.mounted) return false;
-    showSnack(context, 'CREDITOS RENOVADOS');
-    return true;
   }
 
   String _statusText(PlayController c) {

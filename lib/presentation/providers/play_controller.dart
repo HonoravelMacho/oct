@@ -29,6 +29,7 @@ class PlayController extends ChangeNotifier {
   int eloAfter = EloService.startingElo;
   List<String> historySan = <String>[];
   List<String> historyFen = <String>[];
+  List<String> historyUci = <String>[];
   List<String> lastMoveSquares = <String>[];
   List<int> plyDurationsMs = <int>[];
   DateTime? _turnStart;
@@ -92,6 +93,7 @@ class PlayController extends ChangeNotifier {
     eloAfter = eloBefore;
     historySan.clear();
     historyFen = [game.fen];
+    historyUci.clear();
     lastMoveSquares.clear();
     plyDurationsMs.clear();
     gameReview = null;
@@ -123,7 +125,7 @@ class PlayController extends ChangeNotifier {
     final applied = game.move({'from': from, 'to': to, 'promotion': promotion});
     if (!applied) return false;
 
-    _recordPly();
+    _recordPly(from: from, to: to);
     lastMoveSquares = [from, to];
     notifyListeners();
 
@@ -132,10 +134,15 @@ class PlayController extends ChangeNotifier {
     return true;
   }
 
-  void _recordPly() {
+  void _recordPly({String? from, String? to}) {
     final h = game.getHistory();
     historySan.add(h.isNotEmpty ? '${h.last}' : '?');
     historyFen.add(game.fen);
+    if (from != null && to != null) {
+      historyUci.add('$from$to');
+    } else if (historyUci.length < historySan.length) {
+      historyUci.add('----');
+    }
     final now = DateTime.now();
     if (_turnStart != null) {
       plyDurationsMs.add(now.difference(_turnStart!).inMilliseconds);
@@ -175,7 +182,7 @@ class PlayController extends ChangeNotifier {
         final applied =
             game.move({'from': from, 'to': to, 'promotion': promo});
         if (applied) {
-          _recordPly();
+          _recordPly(from: from, to: to);
           lastMoveSquares = [from, to];
         }
       }
@@ -226,6 +233,34 @@ class PlayController extends ChangeNotifier {
   }
 
   // ---------- Análise pós-partida ----------
+
+  /// FEN do ply [ply] (0 = posição inicial, n = final).
+  String fenAtPly(int ply) {
+    if (historyFen.isEmpty) return game.fen;
+    return historyFen[ply.clamp(0, historyFen.length - 1)];
+  }
+
+  /// Casas do último lance para o ply [ply] (vazio no ply 0).
+  List<String> lastMoveAtPly(int ply) {
+    if (ply <= 0 || ply > historyUci.length) return const [];
+    final uci = historyUci[ply - 1];
+    if (uci.length < 4 || uci == '----') return const [];
+    return [uci.substring(0, 2), uci.substring(2, 4)];
+  }
+
+  /// Índices dos piores lances do usuário (para "aprofundar").
+  List<int> worstUserPlies({int count = 3}) {
+    final r = gameReview;
+    if (r == null || r.losses.length != historySan.length) return const [];
+    final idx = <int>[];
+    for (var i = 0; i < historySan.length; i++) {
+      final isWhiteMove = i % 2 == 0;
+      final isUser = (userColor == 'w') == isWhiteMove;
+      if (isUser) idx.add(i);
+    }
+    idx.sort((a, b) => r.losses[b].compareTo(r.losses[a]));
+    return idx.where((i) => r.losses[i] > 7).take(count).toList();
+  }
 
   int _capturesOf(String color) {
     var n = 0;
@@ -357,6 +392,11 @@ class PlayController extends ChangeNotifier {
         depth: d,
       );
       reviewDepthUsed = d;
+      // Alimenta o dashboard / laboratório offline.
+      _session.recordGameReview(
+        userWhite: userColor == 'w',
+        review: gameReview!,
+      );
     } catch (_) {
       gameReview = null;
     }

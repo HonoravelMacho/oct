@@ -290,6 +290,33 @@ class GameReviewService {
 
     final opening = OpeningBook.identify(sans);
 
+    final losses = <double>[];
+    // Reconstroi perda por lance na ordem dos plies (para análise profunda).
+    // Já temos as perdas por cor; reordena pelo índice do lance.
+    {
+      final wi = <double>[...lossesWhite];
+      final bi = <double>[...lossesBlack];
+      var wIdx = 0;
+      var bIdx = 0;
+      // lossesWhite/Black foram preenchidos em ordem de plies, então
+      // podemos remontar: para cada ply, pega da lista correspondente.
+      // Como foram adicionados sequencialmente, basta intercalar pela cor.
+      // Simplificação segura: usa a lista de labels + mapa de perdas médias
+      // por label? Não — reconstroi diretamente:
+      final tmpW = <double>[];
+      final tmpB = <double>[];
+      // Na verdade lossesWhite já está em ordem dos lances brancos.
+      tmpW.addAll(wi);
+      tmpB.addAll(bi);
+      for (var i = 0; i < n; i++) {
+        if (i % 2 == 0) {
+          losses.add(wIdx < tmpW.length ? tmpW[wIdx++] : 0);
+        } else {
+          losses.add(bIdx < tmpB.length ? tmpB[bIdx++] : 0);
+        }
+      }
+    }
+
     return GameReview(
       accuracyWhite: accuracyFromAvgLoss(avgWhite),
       accuracyBlack: accuracyFromAvgLoss(avgBlack),
@@ -298,6 +325,7 @@ class GameReviewService {
       countsWhite: counts(labels, true),
       countsBlack: counts(labels, false),
       labels: labels,
+      losses: losses,
       timeline: timeline,
       evalTexts: evalTexts,
       depth: depth,
@@ -423,6 +451,7 @@ class GameReview {
     required this.countsWhite,
     required this.countsBlack,
     required this.labels,
+    required this.losses,
     required this.timeline,
     required this.evalTexts,
     required this.depth,
@@ -440,6 +469,8 @@ class GameReview {
   final Map<MoveLabel, int> countsWhite;
   final Map<MoveLabel, int> countsBlack;
   final List<MoveLabel> labels;
+  /// Perda em win% por lance (índice = ply). Para "piores lances".
+  final List<double> losses;
   final List<double> timeline;
   final List<String> evalTexts;
   final int depth;

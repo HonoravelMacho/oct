@@ -59,7 +59,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'BASE ${session.premiumUnlocked ? 'COMPLETA' : 'GRATUITA'}',
+                          'BASE ${session.fullBaseInstalled ? 'COMPLETA' : 'LOCAL'}',
                           style: const TextStyle(
                               fontSize: 9,
                               letterSpacing: 2.5,
@@ -81,11 +81,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     minHeight: 8,
                   ),
                 ),
-                if (!session.premiumUnlocked) ...[
+                if (!session.fullBaseInstalled) ...[
                   const SizedBox(height: 10),
                   Text(
-                    'BASE GRATIS: ${AppConstants.freeBaseTarget} TATICAS - '
-                    'PREMIUM LIBERA ATE ${AppConstants.premiumTotalLabel}',
+                    'BASE LOCAL: ${AppConstants.freeBaseTarget} TATICAS - '
+                    'BAIXE A VERSAO COMPLETA (ATE ${AppConstants.premiumTotalLabel}) NO WI-FI',
                     style: const TextStyle(
                         fontSize: 9, letterSpacing: 1, color: NoirPalette.textDim),
                   ),

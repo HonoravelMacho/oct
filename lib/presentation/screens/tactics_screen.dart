@@ -172,7 +172,7 @@ class _SolverView extends StatelessWidget {
                 style: const TextStyle(fontSize: 10, letterSpacing: 2),
               ),
               Text(
-                session.premiumUnlocked ? 'PREMIUM' : 'GRATIS',
+                session.fullBaseInstalled ? 'VERSAO COMPLETA' : 'BASE LOCAL',
                 style: const TextStyle(
                     fontSize: 9,
                     letterSpacing: 2,
